@@ -29,19 +29,19 @@ const io = socketIo(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Middleware de seguridad
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-hashes'"],
-      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
-      connectSrc: ["'self'", "ws:", "wss:", "https://tqhlyyaxoikeioofrxcr.supabase.co"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"]
-    }
-  }
-}));
+// Middleware de seguridad (desactivado temporalmente para debug)
+// app.use(helmet({
+//   contentSecurityPolicy: {
+//     directives: {
+//       defaultSrc: ["'self'"],
+//       styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+//       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-hashes'"],
+//       imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com"],
+//       connectSrc: ["'self'", "ws:", "wss:", "https://tqhlyyaxoikeioofrxcr.supabase.co"],
+//       fontSrc: ["'self'", "https://cdnjs.cloudflare.com"]
+//     }
+//   }
+// }));
 
 app.use(compression());
 app.use(cors());
@@ -80,6 +80,12 @@ const upload = multer({
 
 // Servir archivos estáticos
 app.use(express.static('public'));
+
+// Log para debug de archivos estáticos
+app.use((req, res, next) => {
+  console.log(`📁 Solicitando: ${req.path}`);
+  next();
+});
 
 // Función para obtener hash de IP (anonimizar)
 function getIpHash(req) {
