@@ -7,15 +7,7 @@
     <link rel="stylesheet" href="styles.css">
     <style>
         .admin-header {
-            ba                        <button class="btn-approve" data-id="${report.id}" data-action="active">
-                            ✅ Aprobar
-                        </button>
-                        <button class="btn-reject" data-id="${report.id}" data-action="rejected">
-                            ❌ Rechazar
-                        </button>
-                        <button class="btn-delete" data-id="${report.id}" data-action="delete">
-                            🗑️ Eliminar
-                        </button> linear-gradient(135deg, #2c3e50, #34495e);
+            background: linear-gradient(135deg, #2c3e50, #34495e);
             color: white;
             padding: 20px 0;
         }
@@ -323,7 +315,7 @@
             }
             
             container.innerHTML = reports.map(report => `
-                <div class="report-row" data-id="${report.id}">
+                <div class="report-row" data-id="${report.id}" data-report-id="${report.id}">
                     <div><strong>ID:</strong> ${report.id}</div>
                     <div><strong>📞</strong> ${report.phone_number}</div>
                     <div><strong>Tipo:</strong> ${getScamTypeLabel(report.scam_type)}</div>
@@ -335,8 +327,8 @@
                             ${getStatusLabel(report.status)}
                         </span>
                     </div>
-                    <div class="action-buttons">
-                        <button class="btn-approve" data-id="${report.id}" data-action="active">
+                    <div class="action-buttons report-actions">
+                        <button class="btn-approve" data-id="${report.id}" data-action="approved">
                             ✅ Aprobar
                         </button>
                         <button class="btn-reject" data-id="${report.id}" data-action="rejected">
@@ -367,7 +359,7 @@
             document.querySelectorAll('.btn-approve').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const reportId = e.target.dataset.id;
-                    updateStatus(reportId, 'active');
+                    updateStatus(reportId, 'approved');
                 });
             });
             
@@ -389,7 +381,7 @@
         }
         
         async function updateStatus(reportId, status) {
-            const actionText = status === 'active' ? 'aprobar' : 'rechazar';
+            const actionText = status === 'approved' ? 'aprobar' : 'rechazar';
             if (!confirm(`¿Estás seguro de ${actionText} este reporte?`)) {
                 return;
             }
@@ -409,17 +401,116 @@
                 const result = await response.json();
                 console.log('📊 Respuesta del servidor:', result);
                 
-                if (response.ok) {
-                    alert(`✅ Reporte ${actionText} correctamente`);
-                    loadReports(); // Recargar lista
+                if (response.ok && result.success) {
+                    console.log(`✅ ${result.message}`);
+                    
+                    // Si el reporte fue rechazado, removerlo de la vista inmediatamente
+                    if (status === 'rejected' || status === 'inactive') {
+                        const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                        if (reportCard) {
+                            reportCard.style.transition = 'all 0.3s ease';
+                            reportCard.style.opacity = '0';
+                            reportCard.style.transform = 'translateX(-100%)';
+                            
+                            setTimeout(() => {
+                                reportCard.remove();
+                                console.log(`🗑️ Reporte ${reportId} removido de la vista`);
+                            }, 300);
+                        }
+                        
+                        showNotification(`✅ Reporte rechazado y removido`, 'success');
+                    } else {
+                        // Si fue aprobado, actualizar el estilo visual
+                        const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                        if (reportCard) {
+                            reportCard.style.border = '2px solid #27ae60';
+                            reportCard.style.backgroundColor = '#d5f5d5';
+                            
+                            // Mostrar indicador de aprobado
+                            const statusIndicator = reportCard.querySelector('.status-indicator') || 
+                                                   document.createElement('div');
+                            statusIndicator.className = 'status-indicator approved';
+                            statusIndicator.innerHTML = '✅ APROBADO';
+                            statusIndicator.style.cssText = `
+                                background: #27ae60;
+                                color: white;
+                                padding: 5px 10px;
+                                border-radius: 15px;
+                                font-size: 12px;
+                                font-weight: bold;
+                                margin: 10px 0;
+                                display: inline-block;
+                            `;
+                            
+                            if (!reportCard.querySelector('.status-indicator')) {
+                                reportCard.querySelector('.report-actions').prepend(statusIndicator);
+                            }
+                        }
+                        
+                        showNotification(`✅ Reporte aprobado correctamente`, 'success');
+                    }
                 } else {
                     console.error('❌ Error del servidor:', result);
-                    alert(`❌ Error al ${actionText} reporte: ${result.error}`);
+                    showNotification(`❌ Error: ${result.error || 'Error desconocido'}`, 'error');
                 }
             } catch (error) {
                 console.error('❌ Error de conexión:', error);
-                alert('❌ Error de conexión con el servidor');
+                showNotification('❌ Error de conexión con el servidor', 'error');
             }
+        }
+
+        // Función para mostrar notificaciones
+        function showNotification(message, type = 'info') {
+            // Crear o usar contenedor de notificaciones existente
+            let container = document.getElementById('notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'notification-container';
+                container.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    z-index: 10000;
+                    pointer-events: none;
+                `;
+                document.body.appendChild(container);
+            }
+
+            // Crear notificación
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                background: ${type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db'};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                margin-bottom: 10px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                font-weight: 500;
+                pointer-events: auto;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+            `;
+            notification.textContent = message;
+
+            container.appendChild(notification);
+
+            // Animar entrada
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateX(0)';
+            }, 10);
+
+            // Auto-remover después de 4 segundos
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }, 4000);
         }
         
         async function deleteReport(reportId) {

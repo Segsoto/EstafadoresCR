@@ -365,16 +365,34 @@ app.put('/admin/api/reports/:id/status', requireAdmin, async (req, res) => {
     
     console.log(`📝 Admin actualizando status del reporte ${id} a ${status}`);
     
-    if (!['active', 'inactive'].includes(status)) {
-      return res.status(400).json({ error: 'Status inválido' });
+    // Mapear estados del frontend a base de datos
+    let isActive;
+    if (status === 'approved' || status === 'active') {
+      isActive = true;
+    } else if (status === 'rejected' || status === 'inactive') {
+      isActive = false;
+    } else {
+      return res.status(400).json({ 
+        error: 'Status inválido. Use: approved, rejected, active, o inactive' 
+      });
     }
     
-    const isActive = status === 'active';
     const result = await updateReportStatus(id, isActive);
     
     if (result.changes > 0) {
-      console.log(`✅ Status actualizado para reporte ${id}`);
-      res.json({ success: true });
+      console.log(`✅ Status actualizado para reporte ${id}: ${status} -> active: ${isActive}`);
+      
+      // Emitir evento para actualizar tiempo real si está conectado
+      if (io) {
+        io.emit('reportStatusChanged', { reportId: id, status, isActive });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Reporte ${status === 'approved' || status === 'active' ? 'aprobado' : 'rechazado'} correctamente`,
+        newStatus: status,
+        isActive: isActive
+      });
     } else {
       res.status(404).json({ error: 'Reporte no encontrado' });
     }
