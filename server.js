@@ -25,7 +25,16 @@ const {
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+
+// Configuración especial de Socket.IO para Vercel
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  },
+  transports: ['polling'], // Solo polling para Vercel
+  allowEIO3: true
+});
 
 const PORT = process.env.PORT || 3000;
 

@@ -11,22 +11,45 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    // Conectar Socket.IO
-    socket = io();
-    
-    // Eventos de Socket.IO
-    socket.on('newReport', function(report) {
-        addReportToFeed(report, true);
-        showNotification('Nuevo reporte agregado', 'success');
-    });
-    
-    socket.on('voteUpdate', function(data) {
-        updateVoteDisplay(data.reportId, data.type);
-    });
-    
-    socket.on('newComment', function(data) {
-        updateCommentsCount(data.reportId);
-    });
+    // Conectar Socket.IO con configuración para Vercel
+    try {
+        socket = io({
+            transports: ['polling'], // Solo polling para Vercel
+            upgrade: false,
+            rememberUpgrade: false,
+            timeout: 5000,
+            forceNew: true
+        });
+        
+        // Eventos de Socket.IO
+        socket.on('connect', function() {
+            console.log('✅ Conectado al servidor');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('❌ Desconectado del servidor');
+        });
+        
+        socket.on('connect_error', function(error) {
+            console.log('⚠️ Error de conexión Socket.IO (esperado en Vercel):', error.message);
+        });
+        
+        socket.on('newReport', function(report) {
+            addReportToFeed(report, true);
+            showNotification('Nuevo reporte agregado', 'success');
+        });
+        
+        socket.on('voteUpdate', function(data) {
+            updateVoteDisplay(data.reportId, data.type);
+        });
+        
+        socket.on('newComment', function(data) {
+            updateCommentsCount(data.reportId);
+        });
+    } catch (error) {
+        console.log('⚠️ Socket.IO no disponible, funcionando sin tiempo real');
+        socket = null;
+    }
     
     // Configurar formularios
     setupForms();
