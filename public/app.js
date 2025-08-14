@@ -57,6 +57,9 @@ function initializeApp() {
     // Configurar navegación
     setupNavigation();
     
+    // Configurar inputs de comentarios
+    setupCommentInputs();
+    
     // Cargar datos iniciales
     loadReports();
     loadStats();
@@ -370,11 +373,8 @@ function createReportCard(report) {
     };
     
     card.innerHTML = `
-        <div class="report-header">
-            <div class="report-phone">📞 ${report.phone_number}</div>
-            <div class="report-type">${getScamTypeLabel(report.scam_type)}</div>
-            <div class="report-date">${formatDate(report.created_at)}</div>
-        </div>
+        <div class="phone-number">📞 ${report.phone_number}</div>
+        <div class="scam-type">${getScamTypeLabel(report.scam_type)}</div>
         
         <div class="report-description">
             ${report.description}
@@ -382,27 +382,33 @@ function createReportCard(report) {
         
         ${report.image_path ? `
             <div class="report-image">
-                <img src="${report.image_path}" alt="Evidencia del intento de estafa" loading="lazy">
+                <img src="${report.image_path}" alt="Evidencia del intento de estafa" loading="lazy" style="max-width: 100%; border-radius: 6px; margin: 1rem 0;">
             </div>
         ` : ''}
         
-        <div class="report-actions">
-            <button class="vote-btn up" onclick="voteReport(${report.id}, 'up')">
-                👍 ${report.votes_up || 0}
+        <div class="report-meta">
+            <span>${formatDate(report.created_at)}</span>
+        </div>
+        
+        <div class="votes">
+            <button class="vote-btn ${report.user_vote === 'up' ? 'liked' : ''}" onclick="voteReport('${report.id}', 'up')" data-report-id="${report.id}" data-vote-type="up">
+                👍 <span class="vote-count">${report.votes_up || 0}</span>
             </button>
-            <button class="vote-btn down" onclick="voteReport(${report.id}, 'down')">
-                👎 ${report.votes_down || 0}
+            <button class="vote-btn ${report.user_vote === 'down' ? 'disliked' : ''}" onclick="voteReport('${report.id}', 'down')" data-report-id="${report.id}" data-vote-type="down">
+                👎 <span class="vote-count">${report.votes_down || 0}</span>
             </button>
-            <button class="comment-btn" onclick="toggleComments(${report.id})">
-                💬 Comentarios
+            <button class="vote-btn comment-btn" onclick="toggleComments('${report.id}')" data-report-id="${report.id}">
+                💬 <span class="comment-count">${report.comments_count || 0}</span>
             </button>
         </div>
         
-        <div id="comments-${report.id}" class="comments-section" style="display: none;">
-            <div class="comments-list"></div>
+        <div id="comments-${report.id}" class="comments-section hidden">
             <div class="comment-form">
-                <input type="text" class="comment-input" placeholder="Agregar comentario...">
-                <button class="comment-submit" onclick="addComment(${report.id})">Enviar</button>
+                <input type="text" class="comment-input" placeholder="Agregar comentario..." maxlength="500">
+                <button class="comment-submit" onclick="addComment('${report.id}')">Enviar</button>
+            </div>
+            <div class="comments-list" id="comments-list-${report.id}">
+                <!-- Los comentarios se cargarán aquí -->
             </div>
         </div>
     `;
@@ -413,6 +419,8 @@ function createReportCard(report) {
 // Votar en reporte
 async function voteReport(reportId, type) {
     try {
+        console.log(`🗳️ Votando ${type} en reporte ${reportId}`);
+        
         const response = await fetch(`/api/reports/${reportId}/vote`, {
             method: 'POST',
             headers: {
@@ -423,64 +431,160 @@ async function voteReport(reportId, type) {
         
         const result = await response.json();
         
-        if (!result.success) {
+        if (response.ok && result.success) {
+            updateVoteDisplay(reportId, type, result.votes);
+            showNotification(`Voto ${type === 'up' ? 'positivo' : 'negativo'} registrado`, 'success');
+        } else {
             showNotification(result.message || 'Error al votar', 'error');
         }
     } catch (error) {
-        console.error('Error:', error);
-        showNotification('Error al votar', 'error');
+        console.error('❌ Error al votar:', error);
+        showNotification('Error de conexión al votar', 'error');
     }
 }
 
 // Actualizar display de votos
-function updateVoteDisplay(reportId, voteType) {
-    const card = document.querySelector(`[data-report-id="${reportId}"]`);
-    if (!card) return;
+function updateVoteDisplay(reportId, voteType, votes) {
+    const upBtn = document.querySelector(`[data-report-id="${reportId}"][data-vote-type="up"]`);
+    const downBtn = document.querySelector(`[data-report-id="${reportId}"][data-vote-type="down"]`);
     
-    const button = card.querySelector(`.vote-btn.${voteType}`);
-    if (button) {
-        const currentCount = parseInt(button.textContent.match(/\d+/)[0]);
-        button.innerHTML = button.innerHTML.replace(/\d+/, currentCount + 1);
+    if (upBtn && downBtn) {
+        // Actualizar contadores
+        upBtn.querySelector('.vote-count').textContent = votes.up || 0;
+        downBtn.querySelector('.vote-count').textContent = votes.down || 0;
+        
+        // Remover estados activos anteriores
+        upBtn.classList.remove('liked');
+        downBtn.classList.remove('disliked');
+        
+        // Aplicar nuevo estado
+        if (voteType === 'up') {
+            upBtn.classList.add('liked');
+        } else if (voteType === 'down') {
+            downBtn.classList.add('disliked');
+        }
     }
 }
 
 // Toggle comentarios
 async function toggleComments(reportId) {
-    const commentsSection = document.getElementById(`comments-${reportId}`);
+    console.log(`💬 Toggle comentarios para reporte ${reportId}`);
     
-    if (commentsSection.style.display === 'none') {
-        commentsSection.style.display = 'block';
+    const commentsSection = document.getElementById(`comments-${reportId}`);
+    const commentBtn = document.querySelector(`[data-report-id="${reportId}"].comment-btn`);
+    
+    if (commentsSection.classList.contains('hidden')) {
+        // Mostrar comentarios
+        commentsSection.classList.remove('hidden');
+        commentBtn.classList.add('active');
+        
+        // Cargar comentarios si no se han cargado
         await loadComments(reportId);
     } else {
-        commentsSection.style.display = 'none';
+        // Ocultar comentarios
+        commentsSection.classList.add('hidden');
+        commentBtn.classList.remove('active');
     }
 }
 
 // Cargar comentarios
 async function loadComments(reportId) {
     try {
+        console.log(`📥 Cargando comentarios para reporte ${reportId}`);
+        
         const response = await fetch(`/api/reports/${reportId}/comments`);
-        const data = await response.json();
+        const result = await response.json();
         
-        const commentsList = document.querySelector(`#comments-${reportId} .comments-list`);
-        commentsList.innerHTML = '';
-        
-        data.comments.forEach(comment => {
-            const commentDiv = document.createElement('div');
-            commentDiv.className = 'comment';
-            commentDiv.innerHTML = `
-                <div>${comment.content}</div>
-                <div class="comment-date">${new Date(comment.created_at).toLocaleString('es-CR')}</div>
-            `;
-            commentsList.appendChild(commentDiv);
-        });
+        if (response.ok && result.success) {
+            const commentsList = document.getElementById(`comments-list-${reportId}`);
+            
+            if (result.comments.length === 0) {
+                commentsList.innerHTML = '<p class="text-center" style="color: var(--gray-500); padding: 1rem;">No hay comentarios aún</p>';
+            } else {
+                commentsList.innerHTML = result.comments.map(comment => `
+                    <div class="comment">
+                        <div class="comment-text">${escapeHtml(comment.content)}</div>
+                        <div class="comment-meta">${formatDate(comment.created_at)}</div>
+                    </div>
+                `).join('');
+            }
+        } else {
+            console.error('Error al cargar comentarios:', result.message);
+        }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error al cargar comentarios:', error);
     }
 }
 
 // Agregar comentario
 async function addComment(reportId) {
+    const commentInput = document.querySelector(`#comments-${reportId} .comment-input`);
+    const content = commentInput.value.trim();
+    
+    if (!content) {
+        showNotification('Escribe un comentario válido', 'error');
+        return;
+    }
+    
+    if (content.length < 3) {
+        showNotification('El comentario debe tener al menos 3 caracteres', 'error');
+        return;
+    }
+    
+    try {
+        console.log(`💬 Agregando comentario a reporte ${reportId}`);
+        
+        const response = await fetch(`/api/reports/${reportId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ content })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            commentInput.value = '';
+            showNotification('Comentario agregado exitosamente', 'success');
+            
+            // Actualizar contador de comentarios
+            const commentBtn = document.querySelector(`[data-report-id="${reportId}"].comment-btn .comment-count`);
+            if (commentBtn) {
+                const currentCount = parseInt(commentBtn.textContent) || 0;
+                commentBtn.textContent = currentCount + 1;
+            }
+            
+            // Recargar comentarios
+            await loadComments(reportId);
+        } else {
+            showNotification(result.message || 'Error al agregar comentario', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Error al agregar comentario:', error);
+        showNotification('Error de conexión al agregar comentario', 'error');
+    }
+}
+
+// Función para escapar HTML y prevenir XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Agregar comentario (alternativa con Enter)
+function setupCommentInputs() {
+    document.addEventListener('keypress', function(e) {
+        if (e.target.classList.contains('comment-input') && e.key === 'Enter') {
+            const reportId = e.target.closest('.comments-section').id.replace('comments-', '');
+            addComment(reportId);
+        }
+    });
+}
+
+// Agregar comentario (función duplicada legacy - remover)
+async function addCommentLegacy(reportId) {
     const commentInput = document.querySelector(`#comments-${reportId} .comment-input`);
     const content = commentInput.value.trim();
     

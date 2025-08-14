@@ -88,16 +88,116 @@ async function searchReports(query) {
   }
 }
 
-// Votar en un reporte (confirmar o disputar)
+// Votar en un reporte (like/dislike)
 async function voteReport(reportId, voteType, ipHash) {
   try {
-    // Verificar si ya votó (opcional - puedes implementar tabla de votos separada)
-    const column = voteType === 'confirmed' ? 'votes_confirmed' : 'votes_disputed';
+    // Primero verificar si el reporte existe
+    const { data: report, error: reportError } = await supabase
+      .from('reports')
+      .select('votes_up, votes_down')
+      .eq('id', reportId)
+      .single();
+
+    if (reportError) {
+      console.error('Error al verificar reporte:', reportError);
+      return { success: false, message: 'Reporte no encontrado' };
+    }
+
+    // Determinar qué columna actualizar
+    const columnToIncrement = voteType === 'up' ? 'votes_up' : 'votes_down';
+    const currentValue = voteType === 'up' ? (report.votes_up || 0) : (report.votes_down || 0);
+
+    // Actualizar el voto
+    const { data, error } = await supabase
+      .from('reports')
+      .update({ 
+        [columnToIncrement]: currentValue + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', reportId)
+      .select('votes_up, votes_down');
+
+    if (error) {
+      console.error('Error al actualizar voto:', error);
+      return { success: false, message: 'Error al registrar voto' };
+    }
+
+    // Obtener los votos actualizados
+    const updatedVotes = data[0];
     
-    // Usar la función RPC personalizada para incrementar votos
-    const { data, error } = await supabase.rpc('increment_vote', {
-      report_id: reportId,
-      vote_column: column
+    return { 
+      success: true, 
+      message: 'Voto registrado',
+      votes: {
+        up: updatedVotes.votes_up || 0,
+        down: updatedVotes.votes_down || 0
+      }
+    };
+  } catch (error) {
+    console.error('Error al votar en reporte:', error);
+    return { success: false, message: 'Error interno' };
+  }
+}
+
+// Obtener comentarios de un reporte
+async function getReportComments(reportId) {
+  try {
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('report_id', reportId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error al obtener comentarios:', error);
+    throw error;
+  }
+}
+
+// Agregar comentario a un reporte
+async function addReportComment(reportId, content, ipHash) {
+  try {
+    // Verificar que el reporte existe
+    const { data: report, error: reportError } = await supabase
+      .from('reports')
+      .select('id')
+      .eq('id', reportId)
+      .single();
+
+    if (reportError) {
+      return { success: false, message: 'Reporte no encontrado' };
+    }
+
+    // Insertar comentario
+    const { data, error } = await supabase
+      .from('comments')
+      .insert([
+        {
+          report_id: reportId,
+          content: content,
+          ip_hash: ipHash
+        }
+      ])
+      .select();
+
+    if (error) {
+      console.error('Error al insertar comentario:', error);
+      return { success: false, message: 'Error al agregar comentario' };
+    }
+
+    return { 
+      success: true, 
+      message: 'Comentario agregado',
+      comment: data[0]
+    };
+  } catch (error) {
+    console.error('Error al agregar comentario:', error);
+    return { success: false, message: 'Error interno' };
+  }
+}
     });
 
     if (error) throw error;
@@ -209,6 +309,8 @@ module.exports = {
   getReports,
   searchReports,
   voteReport,
+  getReportComments,
+  addReportComment,
   getStats,
   getAllReportsForAdmin,
   updateReportStatus,

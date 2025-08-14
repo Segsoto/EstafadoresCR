@@ -15,6 +15,8 @@ const {
   getReports, 
   searchReports, 
   voteReport, 
+  getReportComments,
+  addReportComment,
   getStats,
   getAllReportsForAdmin,
   updateReportStatus,
@@ -238,8 +240,11 @@ app.post('/api/reports/:id/vote', async (req, res) => {
     const { id } = req.params;
     const { type } = req.body;
     
-    if (!['confirmed', 'disputed'].includes(type)) {
-      return res.status(400).json({ error: 'Tipo de voto inválido' });
+    if (!['up', 'down'].includes(type)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tipo de voto inválido. Usa "up" o "down"' 
+      });
     }
     
     const ipHash = getIpHash(req);
@@ -247,13 +252,85 @@ app.post('/api/reports/:id/vote', async (req, res) => {
     
     if (result.success) {
       // Emitir actualización de votos
-      io.emit('voteUpdate', { reportId: id, type });
+      io.emit('voteUpdate', { reportId: id, type, votes: result.votes });
+      
+      res.json({
+        success: true,
+        message: 'Voto registrado exitosamente',
+        votes: result.votes
+      });
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('❌ Error al votar:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor' 
+    });
+  }
+});
+
+// Obtener comentarios de un reporte
+app.get('/api/reports/:id/comments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const comments = await getReportComments(id);
+    
+    res.json({
+      success: true,
+      comments
+    });
+  } catch (error) {
+    console.error('❌ Error al obtener comentarios:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor' 
+    });
+  }
+});
+
+// Agregar comentario a un reporte
+app.post('/api/reports/:id/comments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    
+    if (!content || content.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'El comentario debe tener al menos 3 caracteres'
+      });
     }
     
-    res.json(result);
+    if (content.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'El comentario no puede exceder 500 caracteres'
+      });
+    }
+    
+    const ipHash = getIpHash(req);
+    const result = await addReportComment(id, content.trim(), ipHash);
+    
+    if (result.success) {
+      // Emitir nuevo comentario
+      io.emit('newComment', { reportId: id, comment: result.comment });
+      
+      res.json({
+        success: true,
+        message: 'Comentario agregado exitosamente',
+        comment: result.comment
+      });
+    } else {
+      res.status(400).json(result);
+    }
   } catch (error) {
-    console.error('Error al votar:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('❌ Error al agregar comentario:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Error interno del servidor' 
+    });
   }
 });
 
