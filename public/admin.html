@@ -405,7 +405,7 @@
                     console.log(`✅ ${result.message}`);
                     
                     // Si el reporte fue rechazado, removerlo de la vista inmediatamente
-                    if (status === 'rejected' || status === 'inactive') {
+                    if (status === 'rejected') {
                         const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
                         if (reportCard) {
                             reportCard.style.transition = 'all 0.3s ease';
@@ -419,12 +419,18 @@
                         }
                         
                         showNotification(`✅ Reporte rechazado y removido`, 'success');
-                    } else {
+                    } else if (status === 'approved') {
                         // Si fue aprobado, actualizar el estilo visual
                         const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
                         if (reportCard) {
                             reportCard.style.border = '2px solid #27ae60';
                             reportCard.style.backgroundColor = '#d5f5d5';
+                            
+                            // Ocultar botones de acción ya que está aprobado
+                            const actionButtons = reportCard.querySelectorAll('.btn-approve, .btn-reject');
+                            actionButtons.forEach(btn => {
+                                btn.style.display = 'none';
+                            });
                             
                             // Mostrar indicador de aprobado
                             const statusIndicator = reportCard.querySelector('.status-indicator') || 
@@ -531,16 +537,30 @@
                 const result = await response.json();
                 console.log('📊 Respuesta del servidor:', result);
                 
-                if (response.ok) {
-                    alert('✅ Reporte eliminado correctamente');
-                    loadReports(); // Recargar lista
+                if (response.ok && result.success) {
+                    console.log(`✅ ${result.message}`);
+                    
+                    // Remover el reporte de la vista inmediatamente
+                    const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                    if (reportCard) {
+                        reportCard.style.transition = 'all 0.3s ease';
+                        reportCard.style.opacity = '0';
+                        reportCard.style.transform = 'translateX(-100%)';
+                        
+                        setTimeout(() => {
+                            reportCard.remove();
+                            console.log(`🗑️ Reporte ${reportId} removido de la vista`);
+                        }, 300);
+                    }
+                    
+                    showNotification('✅ Reporte eliminado correctamente', 'success');
                 } else {
                     console.error('❌ Error del servidor:', result);
-                    alert(`❌ Error al eliminar reporte: ${result.error}`);
+                    showNotification(`❌ Error al eliminar reporte: ${result.error || 'Error desconocido'}`, 'error');
                 }
             } catch (error) {
                 console.error('❌ Error de conexión:', error);
-                alert('❌ Error de conexión con el servidor');
+                showNotification('❌ Error de conexión con el servidor', 'error');
             }
         }
         
