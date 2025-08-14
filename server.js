@@ -113,6 +113,19 @@ function filterOffensiveContent(text) {
 // Inicializar base de datos
 initDatabase();
 
+// RUTAS ESPECÍFICAS PARA ARCHIVOS ESTÁTICOS - DEBEN IR PRIMERO
+app.get('/styles.css', (req, res) => {
+  console.log('📄 Sirviendo styles.css');
+  res.setHeader('Content-Type', 'text/css');
+  res.sendFile(path.join(__dirname, 'public', 'styles.css'));
+});
+
+app.get('/app.js', (req, res) => {
+  console.log('📄 Sirviendo app.js');
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(path.join(__dirname, 'public', 'app.js'));
+});
+
 // Socket.IO para actualizaciones en tiempo real
 io.on('connection', (socket) => {
   console.log('Usuario conectado');
@@ -317,19 +330,6 @@ app.delete('/admin/api/reports/:id', requireAdmin, async (req, res) => {
     console.error('❌ Error al eliminar reporte:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
-
-// Rutas específicas para archivos estáticos
-app.get('/styles.css', (req, res) => {
-  console.log('📄 Sirviendo styles.css');
-  res.setHeader('Content-Type', 'text/css');
-  res.sendFile(path.join(__dirname, 'public', 'styles.css'));
-});
-
-app.get('/app.js', (req, res) => {
-  console.log('📄 Sirviendo app.js');
-  res.setHeader('Content-Type', 'application/javascript');
-  res.sendFile(path.join(__dirname, 'public', 'app.js'));
 });
 
 // Servir otros archivos estáticos (imágenes, uploads, etc.) DESPUÉS de las rutas específicas
