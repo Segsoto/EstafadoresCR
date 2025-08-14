@@ -1,7 +1,7 @@
--- Tabla de comentarios para EstafadoresCR
--- Este archivo contiene el SQL para crear la tabla de comentarios en Supabase
+-- Script simplificado para crear solo lo que falta en Supabase
+-- Ejecutar este archivo si el schema completo da errores
 
--- Crear tabla de comentarios
+-- Solo crear la tabla de comentarios si no existe
 CREATE TABLE IF NOT EXISTS comments (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
@@ -12,29 +12,40 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Índices para mejorar rendimiento
+-- Crear índices solo si no existen
 CREATE INDEX IF NOT EXISTS idx_comments_report_id ON comments(report_id);
 CREATE INDEX IF NOT EXISTS idx_comments_created_at ON comments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_comments_is_active ON comments(is_active);
 
--- Actualizar la tabla de reportes para incluir contadores de votos y comentarios
--- Verificar si las columnas existen antes de agregarlas
+-- Agregar columnas a reports solo si no existen
 DO $$ 
 BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reports' AND column_name='votes_up') THEN
+    -- Verificar y agregar votes_up
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='reports' AND column_name='votes_up'
+    ) THEN
         ALTER TABLE reports ADD COLUMN votes_up INTEGER DEFAULT 0;
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reports' AND column_name='votes_down') THEN
+    -- Verificar y agregar votes_down
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='reports' AND column_name='votes_down'
+    ) THEN
         ALTER TABLE reports ADD COLUMN votes_down INTEGER DEFAULT 0;
     END IF;
     
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='reports' AND column_name='comments_count') THEN
+    -- Verificar y agregar comments_count
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name='reports' AND column_name='comments_count'
+    ) THEN
         ALTER TABLE reports ADD COLUMN comments_count INTEGER DEFAULT 0;
     END IF;
 END $$;
 
--- Función para actualizar el contador de comentarios automáticamente
+-- Función para actualizar contadores (reemplazar si existe)
 CREATE OR REPLACE FUNCTION update_comments_count()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -53,35 +64,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger para actualizar contador automáticamente
+-- Recrear el trigger
 DROP TRIGGER IF EXISTS trigger_update_comments_count ON comments;
 CREATE TRIGGER trigger_update_comments_count
     AFTER INSERT OR DELETE ON comments
     FOR EACH ROW
     EXECUTE FUNCTION update_comments_count();
 
--- RLS (Row Level Security) para comentarios
+-- Habilitar RLS en comments
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
--- Eliminar políticas existentes si existen
+-- Eliminar políticas existentes y recrearlas
 DROP POLICY IF EXISTS "Permitir lectura de comentarios activos" ON comments;
 DROP POLICY IF EXISTS "Permitir insertar comentarios" ON comments;
 
--- Política para permitir lectura de comentarios activos
+-- Crear nuevas políticas
 CREATE POLICY "Permitir lectura de comentarios activos" ON comments
     FOR SELECT USING (is_active = true);
 
--- Política para permitir inserción de comentarios
 CREATE POLICY "Permitir insertar comentarios" ON comments
     FOR INSERT WITH CHECK (true);
-
--- Actualizar las políticas de la tabla reports si es necesario
--- (asumiendo que ya tienes RLS habilitado en reports)
-
--- Comentarios sobre el esquema:
--- 1. Los comentarios están vinculados a reportes mediante report_id
--- 2. Se mantiene el anonimato usando ip_hash
--- 3. Los comentarios tienen límites de caracteres (3-500)
--- 4. Se incluye soft delete con is_active
--- 5. Los contadores se actualizan automáticamente con triggers
--- 6. RLS está habilitado para seguridad
