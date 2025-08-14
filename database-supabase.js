@@ -235,9 +235,12 @@ async function getStats() {
 // Funciones de Administración
 async function getAllReportsForAdmin() {
   try {
+    // Solo mostrar reportes activos (no rechazados) en el panel admin
+    // Los reportes rechazados (is_active = false) no deberían aparecer
     const { data, error } = await supabase
       .from('reports')
       .select('*')
+      .eq('is_active', true)  // Solo reportes activos/pendientes
       .order('reported_at', { ascending: false });
 
     if (error) throw error;
