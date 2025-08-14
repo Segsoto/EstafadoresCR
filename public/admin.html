@@ -332,10 +332,10 @@
                             ✅ Aprobar
                         </button>
                         <button class="btn-reject" data-id="${report.id}" data-action="rejected">
-                            ❌ Rechazar
+                            🙈 Ocultar
                         </button>
                         <button class="btn-delete" data-id="${report.id}" data-action="delete">
-                            🗑️ Eliminar
+                            � Eliminar
                         </button>
                     </div>
                 </div>
@@ -381,8 +381,17 @@
         }
         
         async function updateStatus(reportId, status) {
-            const actionText = status === 'approved' ? 'aprobar' : 'rechazar';
-            if (!confirm(`¿Estás seguro de ${actionText} este reporte?`)) {
+            let actionText, confirmMessage;
+            
+            if (status === 'approved') {
+                actionText = 'aprobar';
+                confirmMessage = '¿Estás seguro de APROBAR este reporte?\n\n✅ El reporte será visible para todos los usuarios.';
+            } else if (status === 'rejected') {
+                actionText = 'rechazar';
+                confirmMessage = '¿Estás seguro de RECHAZAR este reporte?\n\n❌ El reporte se ocultará de la vista pública pero se mantendrá en la base de datos para auditoría.';
+            }
+            
+            if (!confirm(confirmMessage)) {
                 return;
             }
             
@@ -411,20 +420,20 @@
                         console.log('🔍 Elemento encontrado:', reportCard);
                         
                         if (reportCard) {
-                            console.log(`✅ Removiendo reporte ${reportId} de la vista`);
+                            console.log(`✅ Ocultando reporte ${reportId} de la vista (rechazado)`);
                             reportCard.style.transition = 'all 0.3s ease';
                             reportCard.style.opacity = '0';
                             reportCard.style.transform = 'translateX(-100%)';
                             
                             setTimeout(() => {
                                 reportCard.remove();
-                                console.log(`🗑️ Reporte ${reportId} removido completamente`);
+                                console.log(`� Reporte ${reportId} removido de la vista (mantenido en BD)`);
                             }, 300);
                         } else {
                             console.warn(`⚠️ No se encontró el elemento con data-report-id="${reportId}"`);
                         }
                         
-                        showNotification(`✅ Reporte rechazado y removido`, 'success');
+                        showNotification(`✅ Reporte rechazado y ocultado de la vista pública`, 'success');
                     } else if (status === 'approved') {
                         // Si fue aprobado, actualizar el estilo visual
                         const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
@@ -459,7 +468,7 @@
                             }
                         }
                         
-                        showNotification(`✅ Reporte aprobado correctamente`, 'success');
+                        showNotification(`✅ Reporte aprobado y visible en la página principal`, 'success');
                     }
                 } else {
                     console.error('❌ Error del servidor:', result);
@@ -526,12 +535,12 @@
         }
         
         async function deleteReport(reportId) {
-            if (!confirm('⚠️ ¿Estás seguro de ELIMINAR permanentemente este reporte?\\n\\n🚨 Esta acción NO se puede deshacer y eliminará:\\n- El reporte\\n- Todos los comentarios\\n- Todos los votos\\n\\n¿Continuar?')) {
+            if (!confirm('⚠️ ¿Estás seguro de ELIMINAR PERMANENTEMENTE este reporte?\n\n🚨 ATENCIÓN: Esta acción NO se puede deshacer\n\n💥 Se eliminará COMPLETAMENTE de la base de datos:\n- El reporte\n- Todos los comentarios\n- Todos los votos\n- Todo el historial\n\n🔥 No quedará rastro para auditoría\n\n¿Continuar con la eliminación permanente?')) {
                 return;
             }
             
             try {
-                console.log(`🗑️ Eliminando reporte ${reportId}`);
+                console.log(`🗑️ Eliminando PERMANENTEMENTE reporte ${reportId}`);
                 
                 const response = await fetch(`/admin/api/reports/${reportId}`, {
                     method: 'DELETE',
@@ -559,13 +568,13 @@
                         
                         setTimeout(() => {
                             reportCard.remove();
-                            console.log(`🗑️ Reporte ${reportId} eliminado completamente de la vista`);
+                            console.log(`� Reporte ${reportId} ELIMINADO PERMANENTEMENTE`);
                         }, 300);
                     } else {
                         console.warn(`⚠️ No se encontró el elemento para eliminar con data-report-id="${reportId}"`);
                     }
                     
-                    showNotification('✅ Reporte eliminado correctamente', 'success');
+                    showNotification('💥 Reporte eliminado PERMANENTEMENTE de la base de datos', 'error');
                 } else {
                     console.error('❌ Error del servidor:', result);
                     showNotification(`❌ Error al eliminar reporte: ${result.error || 'Error desconocido'}`, 'error');
