@@ -40,17 +40,17 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Servir archivos estáticos ANTES de las rutas
-app.use(express.static('public', {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    }
-    if (path.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-  }
-}));
+// Servir archivos estáticos DESPUÉS de las rutas específicas (comentado temporalmente)
+// app.use(express.static('public', {
+//   setHeaders: (res, path) => {
+//     if (path.endsWith('.css')) {
+//       res.setHeader('Content-Type', 'text/css');
+//     }
+//     if (path.endsWith('.js')) {
+//       res.setHeader('Content-Type', 'application/javascript');
+//     }
+//   }
+// }));
 
 // Rate limiting general
 const limiter = rateLimit({
@@ -321,14 +321,19 @@ app.delete('/admin/api/reports/:id', requireAdmin, async (req, res) => {
 
 // Rutas específicas para archivos estáticos
 app.get('/styles.css', (req, res) => {
+  console.log('📄 Sirviendo styles.css');
   res.setHeader('Content-Type', 'text/css');
   res.sendFile(path.join(__dirname, 'public', 'styles.css'));
 });
 
 app.get('/app.js', (req, res) => {
+  console.log('📄 Sirviendo app.js');
   res.setHeader('Content-Type', 'application/javascript');
   res.sendFile(path.join(__dirname, 'public', 'app.js'));
 });
+
+// Servir otros archivos estáticos (imágenes, uploads, etc.) DESPUÉS de las rutas específicas
+app.use(express.static('public'));
 
 // Ruta principal
 app.get('/', (req, res) => {
