@@ -198,15 +198,6 @@ async function addReportComment(reportId, content, ipHash) {
     return { success: false, message: 'Error interno' };
   }
 }
-    });
-
-    if (error) throw error;
-    return { success: true };
-  } catch (error) {
-    console.error('Error al votar:', error);
-    throw error;
-  }
-}
 
 // Obtener estadísticas
 async function getStats() {
