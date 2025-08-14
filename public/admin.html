@@ -406,16 +406,22 @@
                     
                     // Si el reporte fue rechazado, removerlo de la vista inmediatamente
                     if (status === 'rejected') {
+                        console.log(`🎯 Buscando reporte con ID: ${reportId}`);
                         const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                        console.log('🔍 Elemento encontrado:', reportCard);
+                        
                         if (reportCard) {
+                            console.log(`✅ Removiendo reporte ${reportId} de la vista`);
                             reportCard.style.transition = 'all 0.3s ease';
                             reportCard.style.opacity = '0';
                             reportCard.style.transform = 'translateX(-100%)';
                             
                             setTimeout(() => {
                                 reportCard.remove();
-                                console.log(`🗑️ Reporte ${reportId} removido de la vista`);
+                                console.log(`🗑️ Reporte ${reportId} removido completamente`);
                             }, 300);
+                        } else {
+                            console.warn(`⚠️ No se encontró el elemento con data-report-id="${reportId}"`);
                         }
                         
                         showNotification(`✅ Reporte rechazado y removido`, 'success');
@@ -541,16 +547,22 @@
                     console.log(`✅ ${result.message}`);
                     
                     // Remover el reporte de la vista inmediatamente
+                    console.log(`🎯 Buscando reporte para eliminar con ID: ${reportId}`);
                     const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                    console.log('🔍 Elemento encontrado para eliminar:', reportCard);
+                    
                     if (reportCard) {
+                        console.log(`✅ Eliminando reporte ${reportId} de la vista`);
                         reportCard.style.transition = 'all 0.3s ease';
                         reportCard.style.opacity = '0';
                         reportCard.style.transform = 'translateX(-100%)';
                         
                         setTimeout(() => {
                             reportCard.remove();
-                            console.log(`🗑️ Reporte ${reportId} removido de la vista`);
+                            console.log(`🗑️ Reporte ${reportId} eliminado completamente de la vista`);
                         }, 300);
+                    } else {
+                        console.warn(`⚠️ No se encontró el elemento para eliminar con data-report-id="${reportId}"`);
                     }
                     
                     showNotification('✅ Reporte eliminado correctamente', 'success');
