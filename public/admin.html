@@ -331,11 +331,8 @@
                         <button class="btn-approve" data-id="${report.id}" data-action="approved">
                             ✅ Aprobar
                         </button>
-                        <button class="btn-reject" data-id="${report.id}" data-action="rejected">
-                            🙈 Ocultar
-                        </button>
                         <button class="btn-delete" data-id="${report.id}" data-action="delete">
-                            � Eliminar
+                            💥 Eliminar
                         </button>
                     </div>
                 </div>
@@ -363,14 +360,6 @@
                 });
             });
             
-            // Event listeners para botones de rechazar
-            document.querySelectorAll('.btn-reject').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const reportId = e.target.dataset.id;
-                    updateStatus(reportId, 'rejected');
-                });
-            });
-            
             // Event listeners para botones de eliminar
             document.querySelectorAll('.btn-delete').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -381,15 +370,12 @@
         }
         
         async function updateStatus(reportId, status) {
-            let actionText, confirmMessage;
-            
-            if (status === 'approved') {
-                actionText = 'aprobar';
-                confirmMessage = '¿Estás seguro de APROBAR este reporte?\n\n✅ El reporte será visible para todos los usuarios.';
-            } else if (status === 'rejected') {
-                actionText = 'rechazar';
-                confirmMessage = '¿Estás seguro de RECHAZAR este reporte?\n\n❌ El reporte se ocultará de la vista pública pero se mantendrá en la base de datos para auditoría.';
+            if (status !== 'approved') {
+                console.error('❌ Solo se permite aprobar reportes');
+                return;
             }
+            
+            const confirmMessage = '¿Estás seguro de APROBAR este reporte?\n\n✅ El reporte será visible para todos los usuarios.';
             
             if (!confirm(confirmMessage)) {
                 return;
@@ -413,63 +399,40 @@
                 if (response.ok && result.success) {
                     console.log(`✅ ${result.message}`);
                     
-                    // Si el reporte fue rechazado, removerlo de la vista inmediatamente
-                    if (status === 'rejected') {
-                        console.log(`🎯 Buscando reporte con ID: ${reportId}`);
-                        const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
-                        console.log('🔍 Elemento encontrado:', reportCard);
+                    // Si fue aprobado, actualizar el estilo visual
+                    const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
+                    if (reportCard) {
+                        reportCard.style.border = '2px solid #27ae60';
+                        reportCard.style.backgroundColor = '#d5f5d5';
                         
-                        if (reportCard) {
-                            console.log(`✅ Ocultando reporte ${reportId} de la vista (rechazado)`);
-                            reportCard.style.transition = 'all 0.3s ease';
-                            reportCard.style.opacity = '0';
-                            reportCard.style.transform = 'translateX(-100%)';
-                            
-                            setTimeout(() => {
-                                reportCard.remove();
-                                console.log(`� Reporte ${reportId} removido de la vista (mantenido en BD)`);
-                            }, 300);
-                        } else {
-                            console.warn(`⚠️ No se encontró el elemento con data-report-id="${reportId}"`);
+                        // Ocultar botones de acción ya que está aprobado
+                        const actionButtons = reportCard.querySelectorAll('.btn-approve, .btn-delete');
+                        actionButtons.forEach(btn => {
+                            btn.style.display = 'none';
+                        });
+                        
+                        // Mostrar indicador de aprobado
+                        const statusIndicator = reportCard.querySelector('.status-indicator') || 
+                                               document.createElement('div');
+                        statusIndicator.className = 'status-indicator approved';
+                        statusIndicator.innerHTML = '✅ APROBADO';
+                        statusIndicator.style.cssText = `
+                            background: #27ae60;
+                            color: white;
+                            padding: 5px 10px;
+                            border-radius: 15px;
+                            font-size: 12px;
+                            font-weight: bold;
+                            margin: 10px 0;
+                            display: inline-block;
+                        `;
+                        
+                        if (!reportCard.querySelector('.status-indicator')) {
+                            reportCard.querySelector('.report-actions').prepend(statusIndicator);
                         }
-                        
-                        showNotification(`✅ Reporte rechazado y ocultado de la vista pública`, 'success');
-                    } else if (status === 'approved') {
-                        // Si fue aprobado, actualizar el estilo visual
-                        const reportCard = document.querySelector(`[data-report-id="${reportId}"]`);
-                        if (reportCard) {
-                            reportCard.style.border = '2px solid #27ae60';
-                            reportCard.style.backgroundColor = '#d5f5d5';
-                            
-                            // Ocultar botones de acción ya que está aprobado
-                            const actionButtons = reportCard.querySelectorAll('.btn-approve, .btn-reject');
-                            actionButtons.forEach(btn => {
-                                btn.style.display = 'none';
-                            });
-                            
-                            // Mostrar indicador de aprobado
-                            const statusIndicator = reportCard.querySelector('.status-indicator') || 
-                                                   document.createElement('div');
-                            statusIndicator.className = 'status-indicator approved';
-                            statusIndicator.innerHTML = '✅ APROBADO';
-                            statusIndicator.style.cssText = `
-                                background: #27ae60;
-                                color: white;
-                                padding: 5px 10px;
-                                border-radius: 15px;
-                                font-size: 12px;
-                                font-weight: bold;
-                                margin: 10px 0;
-                                display: inline-block;
-                            `;
-                            
-                            if (!reportCard.querySelector('.status-indicator')) {
-                                reportCard.querySelector('.report-actions').prepend(statusIndicator);
-                            }
-                        }
-                        
-                        showNotification(`✅ Reporte aprobado y visible en la página principal`, 'success');
                     }
+                    
+                    showNotification(`✅ Reporte aprobado y visible en la página principal`, 'success');
                 } else {
                     console.error('❌ Error del servidor:', result);
                     showNotification(`❌ Error: ${result.error || 'Error desconocido'}`, 'error');

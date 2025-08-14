@@ -398,7 +398,18 @@ app.put('/admin/api/reports/:id/status', requireAdmin, async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Error al actualizar status:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    console.error('❌ Detalles del error:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error.message,
+      code: error.code
+    });
   }
 });
 
