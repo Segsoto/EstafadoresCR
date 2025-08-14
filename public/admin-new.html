@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administración - EstafadoresCR</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            background: #ffffff;
+            color: #111;
+            font-size: 14px;
+        }
+        
+        .admin-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 16px 0;
+        }
+        
+        .admin-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        
+        .admin-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #111;
+        }
+        
+        .admin-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .logout-btn {
+            background: #111;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+        
+        .logout-btn:hover {
+            background: #000;
+        }
+        
+        .back-btn {
+            background: #666;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+        
+        .back-btn:hover {
+            background: #555;
+        }
+        
+        .admin-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px auto;
+            max-width: 1200px;
+            padding: 0 16px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 16px;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #111;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.875rem;
+            margin-top: 4px;
+        }
+        
+        .admin-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+        
+        .reports-table {
+            background: white;
+            border-radius: 4px;
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+        
+        .reports-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .reports-table th {
+            background: #f9fafb;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.875rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .reports-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 0.875rem;
+        }
+        
+        .reports-table tr:hover {
+            background: #f9fafb;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .btn-approve {
+            background: #22c55e;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+        
+        .btn-approve:hover {
+            background: #16a34a;
+        }
+        
+        .btn-reject {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+        
+        .btn-reject:hover {
+            background: #d97706;
+        }
+        
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: background 0.15s ease;
+        }
+        
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+        
+        .status-badge {
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .report-description {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 0.875rem;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 12px;
+            border-radius: 4px;
+            margin: 16px 0;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="admin-nav">
+            <h1 class="admin-title">🛡️ Panel de Administración</h1>
+            <div class="admin-actions">
+                <a href="/" class="back-btn">🏠 Volver al sitio</a>
+                <button class="logout-btn" id="logout-btn">🚪 Cerrar Sesión</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="admin-stats">
+        <div class="stat-card">
+            <div class="stat-number" id="total-reports">0</div>
+            <div class="stat-label">Total Reportes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="active-reports">0</div>
+            <div class="stat-label">Activos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="pending-reports">0</div>
+            <div class="stat-label">Pendientes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="rejected-reports">0</div>
+            <div class="stat-label">Rechazados</div>
+        </div>
+    </div>
+
+    <div class="admin-content">
+        <div class="reports-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Teléfono</th>
+                        <th>Tipo</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="reports-container">
+                    <tr>
+                        <td colspan="7" class="loading">Cargando reportes...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let adminToken = localStorage.getItem('adminToken');
+        
+        // Verificar autenticación
+        if (!adminToken) {
+            window.location.href = '/admin/login';
+        }
+        
+        // Cargar datos del admin
+        document.addEventListener('DOMContentLoaded', function() {
+            loadReports();
+            
+            // Event listener para el botón de logout
+            document.getElementById('logout-btn').addEventListener('click', logout);
+        });
+
+        async function loadReports() {
+            console.log('📊 Cargando reportes del admin...');
+            
+            try {
+                const response = await fetch('/admin/api/reports', {
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+                
+                console.log('📡 Estado de respuesta:', response.status);
+                
+                if (response.status === 401) {
+                    console.log('🔒 Token expirado, redirigiendo a login');
+                    localStorage.removeItem('adminToken');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log(`✅ Reportes recibidos: ${data.reports.length}`);
+                
+                displayReports(data.reports);
+                updateStats(data.reports);
+                
+                // Agregar event listeners para los botones de acción
+                setupActionButtons();
+                
+            } catch (error) {
+                console.error('❌ Error al cargar reportes:', error);
+                document.getElementById('reports-container').innerHTML = 
+                    `<tr><td colspan="7" class="error">❌ Error al cargar reportes: ${error.message}</td></tr>`;
+            }
+        }
+        
+        function displayReports(reports) {
+            const container = document.getElementById('reports-container');
+            
+            if (reports.length === 0) {
+                container.innerHTML = '<tr><td colspan="7" class="loading">No hay reportes</td></tr>';
+                return;
+            }
+            
+            container.innerHTML = reports.map(report => `
+                <tr data-id="${report.id}">
+                    <td><strong>${report.id}</strong></td>
+                    <td><strong>${report.phone_number}</strong></td>
+                    <td>${getScamTypeLabel(report.scam_type)}</td>
+                    <td class="report-description" title="${report.description}">${report.description}</td>
+                    <td>
+                        <span class="status-badge status-${report.status || 'pending'}">
+                            ${getStatusLabel(report.status)}
+                        </span>
+                    </td>
+                    <td>${new Date(report.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-approve" data-id="${report.id}" data-action="active">
+                                ✅ Aprobar
+                            </button>
+                            <button class="btn-reject" data-id="${report.id}" data-action="rejected">
+                                ❌ Rechazar
+                            </button>
+                            <button class="btn-delete" data-id="${report.id}" data-action="delete">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        function updateStats(reports) {
+            const total = reports.length;
+            const active = reports.filter(r => r.status === 'active' || !r.status).length;
+            const pending = reports.filter(r => !r.status || r.status === 'pending').length;
+            const rejected = reports.filter(r => r.status === 'rejected').length;
+            
+            document.getElementById('total-reports').textContent = total;
+            document.getElementById('active-reports').textContent = active;
+            document.getElementById('pending-reports').textContent = pending;
+            document.getElementById('rejected-reports').textContent = rejected;
+        }
+        
+        function setupActionButtons() {
+            // Event listeners para botones de aprobar
+            document.querySelectorAll('.btn-approve').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reportId = e.target.dataset.id;
+                    updateStatus(reportId, 'active');
+                });
+            });
+            
+            // Event listeners para botones de rechazar
+            document.querySelectorAll('.btn-reject').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reportId = e.target.dataset.id;
+                    updateStatus(reportId, 'rejected');
+                });
+            });
+            
+            // Event listeners para botones de eliminar
+            document.querySelectorAll('.btn-delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reportId = e.target.dataset.id;
+                    deleteReport(reportId);
+                });
+            });
+        }
+
+        async function updateStatus(reportId, status) {
+            const actionText = status === 'active' ? 'aprobar' : 'rechazar';
+            if (!confirm(`¿Estás seguro de ${actionText} este reporte?`)) {
+                return;
+            }
+            
+            console.log(`🔄 Actualizando reporte ${reportId} a estado: ${status}`);
+            
+            try {
+                const response = await fetch(`/admin/api/reports/${reportId}/status`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+                
+                console.log(`📡 Respuesta del servidor:`, response.status);
+                
+                if (response.ok) {
+                    console.log(`✅ Reporte ${reportId} actualizado exitosamente`);
+                    loadReports(); // Recargar reportes
+                } else {
+                    const errorData = await response.json();
+                    console.error(`❌ Error del servidor:`, errorData);
+                    alert(`❌ Error: ${errorData.error || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                console.error('❌ Error de conexión:', error);
+                alert('❌ Error de conexión con el servidor');
+            }
+        }
+        
+        async function deleteReport(reportId) {
+            if (!confirm('¿Estás seguro de eliminar este reporte? Esta acción no se puede deshacer.')) {
+                return;
+            }
+            
+            console.log(`🗑️ Eliminando reporte ${reportId}`);
+            
+            try {
+                const response = await fetch(`/admin/api/reports/${reportId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${adminToken}`
+                    }
+                });
+                
+                console.log(`📡 Respuesta del servidor:`, response.status);
+                
+                if (response.ok) {
+                    console.log(`✅ Reporte ${reportId} eliminado exitosamente`);
+                    loadReports(); // Recargar reportes
+                } else {
+                    const errorData = await response.json();
+                    console.error(`❌ Error del servidor:`, errorData);
+                    alert(`❌ Error: ${errorData.error || 'Error desconocido'}`);
+                }
+            } catch (error) {
+                console.error('❌ Error de conexión:', error);
+                alert('❌ Error de conexión con el servidor');
+            }
+        }
+        
+        function getScamTypeLabel(type) {
+            const types = {
+                'simpe': 'SIMPE',
+                'familiar': 'Falso Familiar',
+                'phishing': 'Phishing',
+                'premio': 'Falso Premio',
+                'trabajo': 'Trabajo',
+                'inversion': 'Inversión',
+                'gobierno': 'Gobierno',
+                'delivery': 'Delivery',
+                'prestamo': 'Préstamo',
+                'otro': 'Otro'
+            };
+            return types[type] || type;
+        }
+        
+        function getStatusLabel(status) {
+            const labels = {
+                'active': 'Activo',
+                'rejected': 'Rechazado',
+                'pending': 'Pendiente'
+            };
+            return labels[status] || 'Pendiente';
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/admin/login';
+        }
+    </script>
+</body>
+</html>

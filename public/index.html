@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EstafadoresCR.com - Red Social Contra Estafas Telefónicas</title>
+    <meta name="description" content="Reporta y consulta números telefónicos que intentan estafar en Costa Rica. Red social anónima para prevenir estafas.">
+    <meta name="keywords" content="estafas, Costa Rica, teléfono, SIMPE, phishing, reportes, seguridad">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="EstafadoresCR.com - Prevenir Estafas Telefónicas">
+    <meta property="og:description" content="Red social anónima para reportar números telefónicos estafadores en Costa Rica">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://estafadorescr.com">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Socket.IO -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <h1 class="logo">
+                    🛡️ EstafadoresCR.com
+                </h1>
+                <p class="tagline">Red social anónima contra estafas telefónicas</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="container">
+            <div class="nav-buttons">
+                <button class="nav-btn active" onclick="showSection('feed')">
+                    📱 Feed de Reportes
+                </button>
+                <button class="nav-btn" onclick="showSection('search')">
+                    🔍 Buscar Número
+                </button>
+                <button class="nav-btn" onclick="showSection('report')">
+                    ⚠️ Reportar Estafa
+                </button>
+                <button class="nav-btn" onclick="showSection('stats')">
+                    📊 Estadísticas
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main">
+        <div class="container">
+            
+            <!-- Feed Section -->
+            <section id="feed-section" class="section active">
+                <div class="section-header">
+                    <h2>📱 Reportes Recientes</h2>
+                    <button class="refresh-btn" onclick="loadReports()">🔄 Actualizar</button>
+                </div>
+                
+                <div id="reports-container" class="reports-container">
+                    <div class="loading">Cargando reportes...</div>
+                </div>
+                
+                <div class="load-more-container">
+                    <button id="load-more-btn" class="load-more-btn" onclick="loadMoreReports()">
+                        Cargar más reportes
+                    </button>
+                </div>
+            </section>
+
+            <!-- Search Section -->
+            <section id="search-section" class="section">
+                <div class="section-header">
+                    <h2>🔍 Buscar Número Telefónico</h2>
+                </div>
+                
+                <div class="search-form">
+                    <div class="input-group">
+                        <input type="text" id="search-input" placeholder="Buscar número, tipo de estafa o palabras clave...">
+                        <button id="search-button" onclick="searchReports()">🔍 Buscar</button>
+                    </div>
+                </div>
+                
+                <div id="search-results" class="search-results"></div>
+            </section>
+
+            <!-- Report Section -->
+            <section id="report-section" class="section">
+                <div class="section-header">
+                    <h2>⚠️ Reportar Nueva Estafa</h2>
+                    <p class="section-subtitle">Ayuda a otros usuarios reportando intentos de estafa</p>
+                </div>
+                
+                <form id="report-form" class="report-form">
+                    <div class="form-group">
+                        <label for="phone-number">📞 Número Telefónico *</label>
+                        <input type="tel" id="phone-number" name="phoneNumber" placeholder="87654321" maxlength="8" required>
+                        <small>Solo números, 8 dígitos (sin espacios ni guiones)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="scam-type">🏷️ Tipo de Estafa *</label>
+                        <select id="scam-type" name="scamType" required>
+                            <option value="">Seleccionar tipo...</option>
+                            <option value="simpe">SIMPE Móvil</option>
+                            <option value="familiar">Falso Familiar</option>
+                            <option value="phishing">Phishing / Datos Bancarios</option>
+                            <option value="premio">Falso Premio</option>
+                            <option value="trabajo">Falsa Oferta de Trabajo</option>
+                            <option value="inversion">Falsa Inversión</option>
+                            <option value="gobierno">Suplantación Gobierno</option>
+                            <option value="delivery">Falso Delivery</option>
+                            <option value="prestamo">Falso Préstamo</option>
+                            <option value="otro">Otro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="description">📝 Descripción del Intento *</label>
+                        <textarea id="description" name="description" placeholder="Describe cómo intentaron estafarte. Evita incluir datos personales." rows="4" required></textarea>
+                        <small>Mínimo 20 caracteres. No incluyas datos personales.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="image">📷 Imagen (Opcional)</label>
+                        <input type="file" id="image" name="image" accept="image/*">
+                        <small>Captura de pantalla del chat o llamada. Máximo 5MB. Oculta datos personales.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="submit" class="submit-btn">
+                            🚨 Reportar Estafa
+                        </button>
+                    </div>
+                    
+                    <div class="disclaimer">
+                        <p>⚠️ <strong>Aviso Legal:</strong> Al reportar, confirmas que la información es veraz. Los reportes falsos pueden tener consecuencias legales.</p>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Stats Section -->
+            <section id="stats-section" class="section">
+                <div class="section-header">
+                    <h2>📊 Estadísticas de Estafas</h2>
+                </div>
+                
+                <div id="stats-container" class="stats-container">
+                    <div class="loading">Cargando estadísticas...</div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <p>&copy; 2025 EstafadoresCR.com - Protegiendo a Costa Rica de las estafas telefónicas</p>
+                <div class="footer-links">
+                    <a href="#" onclick="showTerms()">Términos y Condiciones</a>
+                    <a href="#" onclick="showPrivacy()">Política de Privacidad</a>
+                    <a href="#" onclick="showContact()">Contacto</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Título</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                Contenido del modal
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications -->
+    <div id="notifications" class="notifications"></div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
