@@ -426,17 +426,49 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Rutas de administración
-app.get('/admin', (req, res) => {
+// Middleware para bloquear rutas admin en producción
+function blockAdminInProduction(req, res, next) {
+  const isLocalhost = req.hostname === 'localhost' || 
+                     req.hostname === '127.0.0.1' || 
+                     req.hostname === '::1' ||
+                     req.ip === '127.0.0.1' ||
+                     req.ip === '::1';
+  
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                      process.env.VERCEL === '1' ||
+                      req.headers.host?.includes('vercel.app') ||
+                      req.headers.host?.includes('estafadores');
+  
+  if (isProduction || !isLocalhost) {
+    console.log(`🚫 Acceso admin bloqueado desde: ${req.ip} - Host: ${req.headers.host}`);
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>404 - Página no encontrada</title></head>
+      <body>
+        <h1>404 - Página no encontrada</h1>
+        <p>La página que buscas no existe.</p>
+        <a href="/">Volver al inicio</a>
+      </body>
+      </html>
+    `);
+  }
+  next();
+}
+
+// Rutas de administración - SOLO DISPONIBLES EN LOCALHOST
+app.get('/admin', blockAdminInProduction, (req, res) => {
+  console.log('🔧 Acceso a panel admin desde localhost');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-app.get('/admin/login', (req, res) => {
+app.get('/admin/login', blockAdminInProduction, (req, res) => {
+  console.log('🔧 Acceso a login admin desde localhost');
   res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
 });
 
-// API de autenticación de admin (básica)
-app.post('/admin/login', (req, res) => {
+// API de autenticación de admin - SOLO EN LOCALHOST
+app.post('/admin/login', blockAdminInProduction, (req, res) => {
   const { username, password } = req.body;
   
   // Credenciales básicas (en producción usar hash y BD)
@@ -449,23 +481,47 @@ app.post('/admin/login', (req, res) => {
   }
 });
 
-// Middleware para verificar admin
+// Middleware para verificar admin - SOLO FUNCIONA EN DESARROLLO LOCAL
 function requireAdmin(req, res, next) {
+  // 🔒 SEGURIDAD: Solo permitir acceso al panel admin en desarrollo local
+  const isLocalhost = req.hostname === 'localhost' || 
+                     req.hostname === '127.0.0.1' || 
+                     req.hostname === '::1' ||
+                     req.ip === '127.0.0.1' ||
+                     req.ip === '::1';
+  
+  const isProduction = process.env.NODE_ENV === 'production' || 
+                      process.env.VERCEL === '1' ||
+                      req.headers.host?.includes('vercel.app') ||
+                      req.headers.host?.includes('estafadores');
+  
+  // Bloquear completamente el acceso en producción
+  if (isProduction || !isLocalhost) {
+    console.log(`🚫 Intento de acceso admin bloqueado desde: ${req.ip} - Host: ${req.headers.host}`);
+    return res.status(404).json({ 
+      error: 'Página no encontrada' 
+    });
+  }
+  
+  // En desarrollo local, verificar token básico
   const token = req.headers.authorization?.replace('Bearer ', '');
   
   if (!token) {
-    return res.status(401).json({ error: 'Token requerido' });
+    return res.status(401).json({ 
+      error: 'Token requerido para acceso admin local' 
+    });
   }
   
   try {
     const decoded = Buffer.from(token, 'base64').toString('utf8');
     if (decoded.startsWith('admin:')) {
+      console.log(`✅ Acceso admin permitido desde localhost: ${req.ip}`);
       next();
     } else {
-      res.status(401).json({ error: 'Token inválido' });
+      res.status(401).json({ error: 'Token admin inválido' });
     }
   } catch (error) {
-    res.status(401).json({ error: 'Token inválido' });
+    res.status(401).json({ error: 'Token admin malformado' });
   }
 }
 
