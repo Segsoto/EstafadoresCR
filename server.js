@@ -9,9 +9,18 @@ const compression = require('compression');
 const cors = require('cors');
 const crypto = require('crypto');
 const { uploadToCloudinary } = require('./cloudinary-config');
+const AutoModerationService = require('./auto-moderation');
+const { createClient } = require('@supabase/supabase-js');
+
+// Configurar cliente de Supabase
+const supabaseUrl = process.env.SUPABASE_URL || 'https://tqhlyyaxoikeioofrxcr.supabase.co';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxaGx5eWF4b2lrZWlvb2ZyeGNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ2MDA3MzAsImV4cCI6MjA3MDE3NjczMH0.DkDO9_Dxhbb92TRHWVDzJkgVp_-jDZNkppOolSdwJv4';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 const { 
   initDatabase, 
-  addReport, 
+  addReport,
+  addReportWithModeration,
   getReports, 
   searchReports, 
   voteReport, 
@@ -27,6 +36,10 @@ const {
 
 const app = express();
 const server = http.createServer(app);
+
+// Inicializar servicio de moderación automática
+const moderationService = new AutoModerationService();
+console.log('🤖 Servicio de moderación automática inicializado');
 
 // Configuración especial de Socket.IO para Vercel
 const io = socketIo(server, {
@@ -179,7 +192,7 @@ app.get('/api/search', async (req, res) => {
   }
 });
 
-// Crear reporte
+// Crear reporte con moderación automática
 app.post('/api/reports', reportLimiter, upload.single('image'), async (req, res) => {
   try {
     const { phoneNumber, scamType, description } = req.body;
@@ -196,15 +209,29 @@ app.post('/api/reports', reportLimiter, upload.single('image'), async (req, res)
       return res.status(400).json({ error: 'Formato de teléfono inválido. Use 8 dígitos.' });
     }
     
-    // Filtrar contenido ofensivo
-    const filteredDescription = filterOffensiveContent(description);
+    console.log('📝 Nuevo reporte recibido para moderación:', { phoneNumber: cleanPhone, scamType });
+
+    // Moderación automática con IA antes de filtrar contenido ofensivo
+    const moderationResult = await moderationService.moderateReport({
+      name: '', // No aplica en este contexto
+      phone: cleanPhone,
+      company: scamType, // Usamos scamType como "company"
+      description,
+      amount: null
+    });
+
+    console.log('🤖 Resultado de moderación:', moderationResult);
+
+    // Solo aplicar filtro básico si la IA lo aprueba
+    const filteredDescription = moderationResult.action === 'approved' ? 
+      filterOffensiveContent(description) : description;
     
     const ipHash = getIpHash(req);
     const userAgent = req.get('User-Agent');
     let imageUrl = null;
     
-    // Subir imagen a Cloudinary si existe
-    if (req.file) {
+    // Subir imagen a Cloudinary si existe y el reporte fue aprobado
+    if (req.file && moderationResult.action === 'approved') {
       try {
         imageUrl = await uploadToCloudinary(req.file.buffer, req.file.originalname);
       } catch (uploadError) {
@@ -213,21 +240,50 @@ app.post('/api/reports', reportLimiter, upload.single('image'), async (req, res)
       }
     }
     
-    const result = await addReport(cleanPhone, scamType, filteredDescription, imageUrl, ipHash, userAgent);
+    // Guardar reporte con estado de moderación
+    const result = await addReportWithModeration(
+      cleanPhone, 
+      scamType, 
+      filteredDescription, 
+      imageUrl, 
+      ipHash, 
+      userAgent,
+      moderationResult
+    );
     
-    // Emitir nuevo reporte a todos los clientes conectados
-    io.emit('newReport', {
+    // Solo emitir reportes aprobados automáticamente
+    if (moderationResult.action === 'approved') {
+      io.emit('newReport', {
+        id: result.id,
+        phone_number: cleanPhone,
+        scam_type: scamType,
+        description: filteredDescription,
+        image_url: imageUrl,
+        reported_at: new Date().toISOString(),
+        votes_confirmed: 0,
+        votes_disputed: 0
+      });
+    }
+
+    // Respuesta basada en moderación
+    let message = '';
+    if (moderationResult.action === 'approved') {
+      message = 'Reporte enviado y publicado exitosamente. ¡Gracias por ayudar a la comunidad!';
+    } else if (moderationResult.action === 'flagged') {
+      message = 'Reporte recibido y enviado a revisión manual. Será publicado una vez verificado por nuestro equipo.';
+    } else {
+      message = 'Tu reporte fue recibido pero no cumple con nuestras políticas de contenido. Por favor revisa la información.';
+    }
+    
+    res.json({ 
+      success: true, 
       id: result.id,
-      phone_number: cleanPhone,
-      scam_type: scamType,
-      description: filteredDescription,
-      image_url: imageUrl,
-      reported_at: new Date().toISOString(),
-      votes_confirmed: 0,
-      votes_disputed: 0
+      message,
+      moderation: {
+        status: moderationResult.action,
+        reason: moderationResult.reason
+      }
     });
-    
-    res.json({ success: true, id: result.id });
   } catch (error) {
     console.error('Error al crear reporte:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -443,6 +499,77 @@ app.delete('/admin/api/reports/:id', requireAdmin, async (req, res) => {
     res.json({ success: true, changes: result.changes });
   } catch (error) {
     console.error('❌ Error al eliminar reporte:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para obtener reportes pendientes de moderación (solo admin)
+app.get('/admin/api/moderation/pending', requireAdmin, async (req, res) => {
+  try {
+    console.log('📋 Admin solicitando reportes pendientes de moderación');
+    
+    const { data, error } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('moderation_status', 'flagged')
+      .order('reported_at', { ascending: false });
+
+    if (error) throw error;
+
+    const reportesConDetalles = data.map(reporte => ({
+      ...reporte,
+      confidence_percentage: reporte.ai_confidence_score ? 
+        (reporte.ai_confidence_score * 100).toFixed(1) + '%' : 'N/A'
+    }));
+
+    console.log(`📊 Encontrados ${reportesConDetalles.length} reportes pendientes`);
+    res.json({ reports: reportesConDetalles });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo reportes pendientes:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para aprobar manualmente un reporte flaggeado
+app.put('/admin/api/moderation/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`✅ Admin aprobando manualmente reporte ${id}`);
+    
+    const { data, error } = await supabase
+      .from('reports')
+      .update({ 
+        moderation_status: 'approved',
+        is_active: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+
+    if (data && data[0]) {
+      // Emitir el reporte aprobado a todos los usuarios
+      io.emit('newReport', {
+        id: data[0].id,
+        phone_number: data[0].phone_number,
+        scam_type: data[0].scam_type,
+        description: data[0].description,
+        image_url: data[0].image_url,
+        reported_at: data[0].reported_at,
+        votes_confirmed: data[0].votes_up || 0,
+        votes_disputed: data[0].votes_down || 0
+      });
+      
+      console.log(`✅ Reporte ${id} aprobado manualmente y publicado`);
+      res.json({ success: true, message: 'Reporte aprobado y publicado' });
+    } else {
+      res.status(404).json({ error: 'Reporte no encontrado' });
+    }
+    
+  } catch (error) {
+    console.error('❌ Error aprobando reporte:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });

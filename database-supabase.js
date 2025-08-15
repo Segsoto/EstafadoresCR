@@ -51,6 +51,39 @@ async function addReport(phoneNumber, scamType, description, imagePath, ipHash, 
   }
 }
 
+// Agregar reporte con moderación automática
+async function addReportWithModeration(phoneNumber, scamType, description, imagePath, ipHash, userAgent = null, moderationResult) {
+  try {
+    const phoneNumberHash = hashPhoneNumber(phoneNumber);
+    
+    const { data, error } = await supabase
+      .from('reports')
+      .insert([
+        {
+          phone_number: phoneNumber,
+          phone_number_hash: phoneNumberHash,
+          scam_type: scamType,
+          description: description,
+          image_url: imagePath,
+          ip_hash: ipHash,
+          user_agent: userAgent,
+          moderation_status: moderationResult.action,
+          ai_confidence_score: moderationResult.confidence,
+          ai_moderation_reason: moderationResult.reason,
+          // Solo marcar como activo si fue aprobado automáticamente
+          is_active: moderationResult.action === 'approved'
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+    return { id: data[0].id };
+  } catch (error) {
+    console.error('Error al agregar reporte con moderación:', error);
+    throw error;
+  }
+}
+
 // Obtener reportes con paginación
 async function getReports(limit = 20, offset = 0) {
   try {
@@ -300,6 +333,7 @@ async function verifyReport(reportId) {
 module.exports = {
   initDatabase,
   addReport,
+  addReportWithModeration,
   getReports,
   searchReports,
   voteReport,
