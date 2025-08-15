@@ -516,6 +516,16 @@ async function loadComments(reportId) {
     }
 }
 
+// Actualizar contador de comentarios
+function updateCommentsCount(reportId) {
+    const commentBtn = document.querySelector(`[data-report-id="${reportId}"] .comment-count`);
+    if (commentBtn) {
+        const currentCount = parseInt(commentBtn.textContent) || 0;
+        commentBtn.textContent = currentCount + 1;
+        console.log(`📊 Actualizado contador de comentarios para reporte ${reportId}: ${currentCount + 1}`);
+    }
+}
+
 // Agregar comentario
 async function addComment(reportId) {
     const commentInput = document.querySelector(`#comments-${reportId} .comment-input`);

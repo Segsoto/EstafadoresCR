@@ -87,7 +87,8 @@ async function addReportWithModeration(phoneNumber, scamType, description, image
 // Obtener reportes con paginación
 async function getReports(limit = 20, offset = 0) {
   try {
-    const { data, error } = await supabase
+    // Primero obtener los reportes
+    const { data: reports, error } = await supabase
       .from('reports')
       .select('*')
       .eq('is_active', true)
@@ -95,7 +96,39 @@ async function getReports(limit = 20, offset = 0) {
       .range(offset, offset + limit - 1);
 
     if (error) throw error;
-    return data || [];
+    
+    if (!reports || reports.length === 0) {
+      return [];
+    }
+    
+    // Luego obtener el conteo de comentarios para cada reporte
+    const reportIds = reports.map(r => r.id);
+    
+    const { data: commentCounts, error: commentError } = await supabase
+      .from('comments')
+      .select('report_id')
+      .in('report_id', reportIds)
+      .eq('is_active', true);
+    
+    if (commentError) {
+      console.error('Error al obtener conteo de comentarios:', commentError);
+      // Si falla el conteo, devolver reportes sin conteo
+      return reports.map(report => ({ ...report, comments_count: 0 }));
+    }
+    
+    // Contar comentarios por reporte
+    const commentCountMap = {};
+    commentCounts?.forEach(comment => {
+      commentCountMap[comment.report_id] = (commentCountMap[comment.report_id] || 0) + 1;
+    });
+    
+    // Agregar conteo a cada reporte
+    const reportsWithCounts = reports.map(report => ({
+      ...report,
+      comments_count: commentCountMap[report.id] || 0
+    }));
+    
+    return reportsWithCounts;
   } catch (error) {
     console.error('Error al obtener reportes:', error);
     throw error;
@@ -105,7 +138,8 @@ async function getReports(limit = 20, offset = 0) {
 // Buscar reportes
 async function searchReports(query) {
   try {
-    const { data, error } = await supabase
+    // Primero obtener los reportes que coinciden
+    const { data: reports, error } = await supabase
       .from('reports')
       .select('*')
       .eq('is_active', true)
@@ -114,7 +148,33 @@ async function searchReports(query) {
       .limit(50);
 
     if (error) throw error;
-    return data || [];
+    
+    if (!reports || reports.length === 0) {
+      return [];
+    }
+    
+    // Obtener conteo de comentarios para los reportes encontrados
+    const reportIds = reports.map(r => r.id);
+    
+    const { data: commentCounts, error: commentError } = await supabase
+      .from('comments')
+      .select('report_id')
+      .in('report_id', reportIds)
+      .eq('is_active', true);
+    
+    // Contar comentarios por reporte
+    const commentCountMap = {};
+    commentCounts?.forEach(comment => {
+      commentCountMap[comment.report_id] = (commentCountMap[comment.report_id] || 0) + 1;
+    });
+    
+    // Agregar conteo a cada reporte
+    const reportsWithCounts = reports.map(report => ({
+      ...report,
+      comments_count: commentCountMap[report.id] || 0
+    }));
+    
+    return reportsWithCounts;
   } catch (error) {
     console.error('Error en búsqueda:', error);
     throw error;
